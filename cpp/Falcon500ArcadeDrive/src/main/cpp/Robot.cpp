@@ -13,8 +13,8 @@ void Robot::RobotInit() {
   configs::TalonFXConfiguration rightConfiguration{};
 
   /* User can optionally change the configs, or leave it alone to perform a factory default */
-  leftConfiguration.MotorOutput.Inverted = false;
-  rightConfiguration.MotorOutput.Inverted = true;
+  leftConfiguration.MotorOutput.Inverted = signals::InvertedValue::CounterClockwise_Positive;
+  rightConfiguration.MotorOutput.Inverted = signals::InvertedValue::Clockwise_Positive;
 
   leftLeader.GetConfigurator().Apply(leftConfiguration);
   leftFollower.GetConfigurator().Apply(leftConfiguration);

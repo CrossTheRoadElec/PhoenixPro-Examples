@@ -10,10 +10,10 @@ import com.ctre.phoenixpro.controls.DutyCycleOut;
 import com.ctre.phoenixpro.controls.Follower;
 import com.ctre.phoenixpro.hardware.Pigeon2;
 import com.ctre.phoenixpro.hardware.TalonFX;
+import com.ctre.phoenixpro.signals.InvertedValue;
 import com.ctre.phoenixpro.sim.ChassisReference;
 import com.ctre.phoenixpro.sim.Pigeon2SimState;
 import com.ctre.phoenixpro.sim.TalonFXSimState;
-import com.ctre.phoenixpro.spns.InvertedValue;
 
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -124,11 +124,11 @@ public class DriveSubsystem extends SubsystemBase {
          * WPILib expects +V to be forward. Specify orientations to match that behavior.
          */
         /* left TalonFXs are CCW+ */
-        m_leftSimState.orientation = ChassisReference.CounterClockwise_Positive;
-        m_leftFollowerSimState.orientation = ChassisReference.CounterClockwise_Positive;
+        m_leftSimState.Orientation = ChassisReference.CounterClockwise_Positive;
+        m_leftFollowerSimState.Orientation = ChassisReference.CounterClockwise_Positive;
         /* right TalonFXs are CW+ */
-        m_rightSimState.orientation = ChassisReference.Clockwise_Positive;
-        m_rightFollowerSimState.orientation = ChassisReference.Clockwise_Positive;
+        m_rightSimState.Orientation = ChassisReference.Clockwise_Positive;
+        m_rightFollowerSimState.Orientation = ChassisReference.Clockwise_Positive;
 
         /* Publish field pose data to read back from */
         SmartDashboard.putData("Field", m_field);

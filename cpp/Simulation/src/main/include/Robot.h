@@ -16,26 +16,32 @@
 #include <units/velocity.h>
 
 class Robot : public frc::TimedRobot {
-  ctre::phoenixpro::hardware::TalonFX leftFX{0};
-  ctre::phoenixpro::hardware::TalonFX rightFX{1};
-  ctre::phoenixpro::hardware::CANcoder leftSensor{0};
-  ctre::phoenixpro::hardware::CANcoder rightSensor{1};
-  ctre::phoenixpro::hardware::Pigeon2 imu{0};
+  // all CTRE devices are assumed to be on a canivore bus named "mycanivore"
+  ctre::phoenixpro::hardware::TalonFX leftLeader{1, kCanivoreName};
+  ctre::phoenixpro::hardware::TalonFX rightLeader{2, kCanivoreName};
+  ctre::phoenixpro::hardware::TalonFX leftFollower{3, kCanivoreName};
+  ctre::phoenixpro::hardware::TalonFX rightFollower{4, kCanivoreName};
 
-  ctre::phoenixpro::sim::TalonFXSimState &leftSim = leftFX.GetSimState();
-  ctre::phoenixpro::sim::TalonFXSimState &rightSim = rightFX.GetSimState();
+  ctre::phoenixpro::hardware::CANcoder leftSensor{0, kCanivoreName};
+  ctre::phoenixpro::hardware::CANcoder rightSensor{1, kCanivoreName};
+
+  ctre::phoenixpro::hardware::Pigeon2 imu{0, kCanivoreName};
+
+  // create sim state objects for handling simulation IO
+  ctre::phoenixpro::sim::TalonFXSimState &leftSim = leftLeader.GetSimState();
+  ctre::phoenixpro::sim::TalonFXSimState &rightSim = rightLeader.GetSimState();
   ctre::phoenixpro::sim::CANcoderSimState &leftSensSim = leftSensor.GetSimState();
   ctre::phoenixpro::sim::CANcoderSimState &rightSensSim = rightSensor.GetSimState();
   ctre::phoenixpro::sim::Pigeon2SimState &imuSim = imu.GetSimState();
 
-  frc::DifferentialDrive drivetrain{leftFX, rightFX};
+  frc::DifferentialDrive drivetrain{leftLeader, rightLeader};
 
   frc::XboxController joystick{0};
 
   /*
     * These numbers are an example AndyMark Drivetrain with some additional weight.
     * This is a fairly light robot.
-    * Note you can utilize results from robot characterization instead of
+    * Note: you can utilize results from robot characterization instead of
     * theoretical numbers.
     * https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/robot-
     * characterization/introduction.html#introduction-to-robot-characterization
@@ -43,7 +49,7 @@ class Robot : public frc::TimedRobot {
   static constexpr units::dimensionless::scalar_t kGearRatio = 10.71; // Standard AndyMark Gearing reduction.
   static constexpr units::inch_t kWheelRadiusInches = 3_in;
 
-  frc::sim::DifferentialDrivetrainSim m_driveSim{
+  frc::sim::DifferentialDrivetrainSim m_driveSim {
     frc::DCMotor::Falcon500(2),
     kGearRatio,
     2.1_kg_sq_m, // MOI of 2.1 kg m^2 (from CAD model)
@@ -52,9 +58,11 @@ class Robot : public frc::TimedRobot {
     0.546_m,     // Distance between wheels is _ meters.
   };
 
+  std::string kCanivoreName = "mcanivore";
+
   frc::Field2d m_field{};
 
-  frc::DifferentialDriveOdometry m_odometry{
+  frc::DifferentialDriveOdometry m_odometry {
     imu.GetRotation2d(),
     0_m, 0_m
   };

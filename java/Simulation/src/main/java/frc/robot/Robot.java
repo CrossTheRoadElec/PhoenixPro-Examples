@@ -4,19 +4,19 @@
 
 package frc.robot;
 
-import com.ctre.phoenixpro.StatusCode;
 import com.ctre.phoenixpro.configs.CANcoderConfiguration;
 import com.ctre.phoenixpro.configs.Pigeon2Configuration;
 import com.ctre.phoenixpro.configs.TalonFXConfiguration;
+import com.ctre.phoenixpro.controls.Follower;
 import com.ctre.phoenixpro.hardware.CANcoder;
 import com.ctre.phoenixpro.hardware.Pigeon2;
 import com.ctre.phoenixpro.hardware.TalonFX;
+import com.ctre.phoenixpro.signals.CANcoder_SensorDirectionValue;
+import com.ctre.phoenixpro.signals.InvertedValue;
 import com.ctre.phoenixpro.sim.CANcoderSimState;
 import com.ctre.phoenixpro.sim.ChassisReference;
 import com.ctre.phoenixpro.sim.Pigeon2SimState;
 import com.ctre.phoenixpro.sim.TalonFXSimState;
-import com.ctre.phoenixpro.spns.CANcoder_SensorDirectionValue;
-import com.ctre.phoenixpro.spns.InvertedValue;
 
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -39,26 +39,34 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * project.
  */
 public class Robot extends TimedRobot {
+    private final static String kCanivoreName = "mycanivore";
+
     private final XboxController joystick = new XboxController(0);
 
-    private final TalonFX leftFX = new TalonFX(1);
-    private final TalonFX rightFX = new TalonFX(2);
-    private final CANcoder leftSensor = new CANcoder(1);
-    private final CANcoder rightSensor = new CANcoder(2);
-    private final Pigeon2 imu = new Pigeon2(0);
+    // All CTRE devices are assumed to be on a canivore bus named "mycanivore"
+    private final TalonFX leftLeader = new TalonFX(1, kCanivoreName);
+    private final TalonFX rightLeader = new TalonFX(2, kCanivoreName);
+    private final TalonFX leftFollower = new TalonFX(3, kCanivoreName);
+    private final TalonFX rightFollower = new TalonFX(4, kCanivoreName);
 
-    private final TalonFXSimState leftSim = leftFX.getSimState();
-    private final TalonFXSimState rightSim = rightFX.getSimState();
+    private final CANcoder leftSensor = new CANcoder(1, kCanivoreName);
+    private final CANcoder rightSensor = new CANcoder(2, kCanivoreName);
+
+    private final Pigeon2 imu = new Pigeon2(0, kCanivoreName);
+
+    // Create sim state objects for handling simulation IO
+    private final TalonFXSimState leftSim = leftLeader.getSimState();
+    private final TalonFXSimState rightSim = rightLeader.getSimState();
     private final CANcoderSimState leftSensSim = leftSensor.getSimState();
     private final CANcoderSimState rightSensSim = rightSensor.getSimState();
     private final Pigeon2SimState imuSim = imu.getSimState();
 
-    private final DifferentialDrive drivetrain = new DifferentialDrive(leftFX, rightFX);
+    private final DifferentialDrive drivetrain = new DifferentialDrive(leftLeader, rightLeader);
 
     /*
      * These numbers are an example AndyMark Drivetrain with some additional weight.
      * This is a fairly light robot.
-     * Note you can utilize results from robot characterization instead of
+     * Note: You can utilize results from robot characterization instead of
      * theoretical numbers.
      * https://docs.wpilib.org/en/stable/docs/software/wpilib-tools/robot-
      * characterization/introduction.html#introduction-to-robot-characterization
@@ -87,9 +95,7 @@ public class Robot extends TimedRobot {
     );
 
     private final Field2d m_field = new Field2d();
-    /*
-     * Creating my odometry object.
-     */
+
     private final DifferentialDriveOdometry m_odometry = new DifferentialDriveOdometry(
         imu.getRotation2d(),
         0, 0
@@ -102,27 +108,71 @@ public class Robot extends TimedRobot {
      */
     @Override
     public void robotInit() {
-        StatusCode returnCode;
-
         TalonFXConfiguration fxCfg = new TalonFXConfiguration();
         fxCfg.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
-        do {
-            returnCode = leftFX.getConfigurator().apply(fxCfg);
-        } while(!returnCode.isOK());
+
+        // Apply and loop in case there is an error
+        for (int i = 0; i < 5; i++) {
+            var result = leftLeader.getConfigurator().apply(fxCfg);
+
+            if (result.isOK()) {
+                break;
+            } // Otherwise retry up to 5 times
+        }
 
         fxCfg.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-        do {
-            returnCode = rightFX.getConfigurator().apply(fxCfg);
-        } while(!returnCode.isOK());
+        
+        // Apply and loop in case there is an error
+        for (int i = 0; i < 5; i++) {
+            var result = rightLeader.getConfigurator().apply(fxCfg);
 
-        CANcoderConfiguration ccCfg = new CANcoderConfiguration();
-        ccCfg.MagnetSensor.SensorDirection = CANcoder_SensorDirectionValue.CounterClockwise_Positive;
-        leftSensor.getConfigurator().apply(ccCfg);
-        ccCfg.MagnetSensor.SensorDirection = CANcoder_SensorDirectionValue.Clockwise_Positive;
-        rightSensor.getConfigurator().apply(ccCfg);
+            if (result.isOK()) {
+                break;
+            } // Otherwise retry up to 5 times
+        }
 
-        Pigeon2Configuration imuCfg = new Pigeon2Configuration();
-        imu.getConfigurator().apply(imuCfg);
+        CANcoderConfiguration cancoderConfig = new CANcoderConfiguration();
+        cancoderConfig.MagnetSensor.SensorDirection = CANcoder_SensorDirectionValue.CounterClockwise_Positive;
+
+        // apply and loop in case there is an error
+        for (int i = 0; i < 5; i++) {
+            var result = leftSensor.getConfigurator().apply(cancoderConfig);
+
+            if (result.isOK()) {
+                break;
+            } // otherwise retry up to 5 times
+        }
+
+        cancoderConfig.MagnetSensor.SensorDirection = CANcoder_SensorDirectionValue.Clockwise_Positive;
+
+        // Apply and loop in case there is an error
+        for (int i = 0; i < 5; i++) {
+            var result = rightSensor.getConfigurator().apply(cancoderConfig);
+
+            if (result.isOK()) {
+                break;
+            } // Otherwise retry up to 5 times
+        }
+
+        var pigeonConfig = new Pigeon2Configuration();
+
+        // Apply and loop in case there is an error
+        for (int i = 0; i < 5; i++) {
+            var result = imu.getConfigurator().apply(pigeonConfig);
+
+            if (result.isOK()) {
+                break;
+            } // Otherwise retry up to 5 times
+        }
+        
+        /*
+         * Create follower control requests and tell followers to follower their respective leader
+         */
+        var leftFollowerControl = new Follower(leftLeader.getDeviceID(), false);
+        var rightFollowerControl = new Follower(rightLeader.getDeviceID(), false);
+
+        leftFollower.setControl(leftFollowerControl);
+        rightFollower.setControl(rightFollowerControl);
 
         /* Make sure all critical signals are synchronized */
         /*
@@ -130,8 +180,8 @@ public class Robot extends TimedRobot {
          * they're all on a CANivore
          */
         imu.getYaw().setUpdateFrequency(100);
-        leftFX.getPosition().setUpdateFrequency(100);
-        rightFX.getPosition().setUpdateFrequency(100);
+        leftLeader.getPosition().setUpdateFrequency(100);
+        rightLeader.getPosition().setUpdateFrequency(100);
 
         /* Publish field pose data to read back from */
         SmartDashboard.putData("Field", m_field);
@@ -141,95 +191,112 @@ public class Robot extends TimedRobot {
 
     @Override
     public void robotPeriodic() {
-        /*
-         * This will get the simulated sensor readings that we set
-         * in the previous article while in simulation, but will use
-         * real values on the robot itself.
-         */
+        // Update the odometry based on the pigeon 2 rotation and cancoder positions
         m_odometry.update(imu.getRotation2d(),
                 rotationsToMeters(leftSensor.getPosition().getValue()),
                 rotationsToMeters(rightSensor.getPosition().getValue()));
+
+        // Update robot pose for visualization
         m_field.setRobotPose(m_odometry.getPoseMeters());
 
-        if (++printCount >= 50) {
+        // Print sensor values every 50 loops,
+        // this is ~1s assuming 20ms loop times.
+        // Users can alternatively publish these values to WPILib SmartDashboard
+        if (printCount >= 50) {
             printCount = 0;
-            System.out.println("Left FX: " + leftFX.getPosition());
-            System.out.println("Right FX: " + rightFX.getPosition());
+
+            System.out.println("Left FX: " + leftLeader.getPosition());
+            System.out.println("Right FX: " + rightLeader.getPosition());
             System.out.println("Left CANcoder: " + leftSensor.getPosition());
             System.out.println("Right CANcoder: " + rightSensor.getPosition());
-            System.out.println("Left Forward limit: " + leftFX.getForwardLimit());
-            System.out.println("Left Reverse limit: " + leftFX.getReverseLimit());
-            System.out.println("Right Forward limit: " + rightFX.getForwardLimit());
-            System.out.println("Right Reverse limit: " + rightFX.getReverseLimit());
+            System.out.println("Left Forward limit: " + leftLeader.getForwardLimit());
+            System.out.println("Left Reverse limit: " + leftLeader.getReverseLimit());
+            System.out.println("Right Forward limit: " + rightLeader.getForwardLimit());
+            System.out.println("Right Reverse limit: " + rightLeader.getReverseLimit());
             System.out.println("Pigeon2: " + imu.getYaw());
             System.out.println();
+        } else {
+            printCount++;
         }
     }
 
     @Override
     public void simulationInit() {
         /*
-         * Set the orientation of the simulated devices relative to the robot chassis.
-         * WPILib expects +V to be forward. Specify orientations to match that behavior.
-         */
-        /* left devices are CCW+ */
-        leftSim.orientation = ChassisReference.CounterClockwise_Positive;
-        leftSensSim.orientation = ChassisReference.CounterClockwise_Positive;
-        /* right devices are CW+ */
-        rightSim.orientation = ChassisReference.Clockwise_Positive;
-        rightSensSim.orientation = ChassisReference.Clockwise_Positive;
-    }
-
-    @Override
-    public void simulationPeriodic() {
-        /* Pass the robot battery voltage to the simulated devices */
-        leftSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-        leftSensSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-        rightSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-        rightSensSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-        imuSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-
-        /*
          * CTRE simulation is low-level, so SimState inputs
          * and outputs are not affected by user-level inversion.
          * However, inputs and outputs *are* affected by the mechanical
          * orientation of the device relative to the robot chassis,
-         * as specified by the `orientation` field.
+         * as specified by the `Orientation` field.
          *
-         * WPILib expects +V to be forward. We have already configured
-         * our orientations to match this behavior.
          */
+        leftSim.Orientation = ChassisReference.CounterClockwise_Positive;
+        leftSensSim.Orientation = ChassisReference.CounterClockwise_Positive;
+        
+        rightSim.Orientation = ChassisReference.Clockwise_Positive;
+        rightSensSim.Orientation = ChassisReference.Clockwise_Positive;
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        /*
+         * Set supply voltage to devices. This is used for
+         * device closed loop calculations in simulation.
+         */
+        leftSim.setSupplyVoltage(RobotController.getBatteryVoltage());
+        leftSensSim.setSupplyVoltage(RobotController.getBatteryVoltage());
+
+        rightSim.setSupplyVoltage(RobotController.getBatteryVoltage());
+        rightSensSim.setSupplyVoltage(RobotController.getBatteryVoltage());
+
+        imuSim.setSupplyVoltage(RobotController.getBatteryVoltage());
+
+        /*
+        * WPILib expects positive voltage (+V) to be forward. Since we've
+        * already configured the mechanical orientations of our devices, 
+        * we do not need to do any additional inversions
+        */
         m_driveSim.setInputs(leftSim.getMotorVoltage(),
                 rightSim.getMotorVoltage());
 
         /*
-         * Advance the model by 20 ms. Note that if you are running this
-         * subsystem in a separate thread or have changed the nominal
-         * timestep of TimedRobot, this value needs to match it.
+         * Advance the time of the simulation model by the robot loop time period.
+         * This is by default 0.02ms, but users will need to modify this if they've
+         * modified the loop timing.
          */
-        m_driveSim.update(0.02);
+        m_driveSim.update(TimedRobot.kDefaultPeriod);
 
-        /* Update all of our sensors. */
+        /*
+         * WPILib DifferentialDriveSimulation outputs meters while the simulated device
+         * expects rotations. Use our conversion function to calculate the raw velocity
+         * and position for cancoder.
+         */
         final double leftPos = metersToRotations(
                 m_driveSim.getLeftPositionMeters());
-        // This is OK, since the time base is the same
+
         final double leftVel = metersToRotations(
                 m_driveSim.getLeftVelocityMetersPerSecond());
+
         final double rightPos = metersToRotations(
                 m_driveSim.getRightPositionMeters());
-        // This is OK, since the time base is the same
+    
         final double rightVel = metersToRotations(
                 m_driveSim.getRightVelocityMetersPerSecond());
+
+        // Update sensor outputs
         leftSensSim.setRawPosition(leftPos);
         leftSensSim.setVelocity(leftVel);
+
         rightSensSim.setRawPosition(rightPos);
         rightSensSim.setVelocity(rightVel);
-        leftSim.setRawRotorPosition(leftPos * this.kGearRatio);
-        leftSim.setRotorVelocity(leftVel * this.kGearRatio);
-        rightSim.setRawRotorPosition(rightPos * this.kGearRatio);
-        rightSim.setRotorVelocity(rightVel * this.kGearRatio);
-        imuSim.setRawYaw(m_driveSim.getHeading().getDegrees());
 
+        leftSim.setRawRotorPosition(leftPos * kGearRatio);
+        leftSim.setRotorVelocity(leftVel * kGearRatio);
+
+        rightSim.setRawRotorPosition(rightPos * kGearRatio);
+        rightSim.setRotorVelocity(rightVel * kGearRatio);
+
+        imuSim.setRawYaw(m_driveSim.getHeading().getDegrees());
 
         /*
          * If a bumper is pressed, trigger the forward limit switch to test it, 
@@ -237,6 +304,7 @@ public class Robot extends TimedRobot {
          */
         leftSim.setForwardLimit(joystick.getLeftBumper());
         leftSim.setReverseLimit(joystick.getLeftTriggerAxis() > 0.5);
+
         rightSim.setForwardLimit(joystick.getRightBumper());
         rightSim.setReverseLimit(joystick.getRightTriggerAxis() > 0.5);
     }
@@ -276,20 +344,25 @@ public class Robot extends TimedRobot {
 
     private double rotationsToMeters(double rotations) {
         /* Get circumference of wheel */
-        final double circumference = this.kWheelRadiusInches * 2 * Math.PI;
+        final double circumference = kWheelRadiusInches * 2 * Math.PI;
+
         /* Every rotation of the wheel travels this many inches */
         /* So now get the meters traveled per rotation */
         final double metersPerWheelRotation = Units.inchesToMeters(circumference);
+        
         /* Now multiply rotations by meters per rotation */
         return rotations * metersPerWheelRotation;
     }
 
     private double metersToRotations(double meters) {
         /* Get circumference of wheel */
-        final double circumference = this.kWheelRadiusInches * 2 * Math.PI;
+        final double circumference = kWheelRadiusInches * 2 * Math.PI;
+
         /* Every rotation of the wheel travels this many inches */
         /* So now get the rotations per meter traveled */
+
         final double wheelRotationsPerMeter = 1.0 / Units.inchesToMeters(circumference);
+
         /* Now apply wheel rotations to input meters */
         return wheelRotationsPerMeter * meters;
     }

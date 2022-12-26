@@ -44,11 +44,11 @@ DriveSubsystem::DriveSubsystem()
      * WPILib expects +V to be forward. Specify orientations to match that behavior.
      */
     /* left TalonFXs are CCW+ */
-    m_leftSimState.orientation = sim::ChassisReference::CounterClockwise_Positive;
-    m_leftFollowerSimState.orientation = sim::ChassisReference::CounterClockwise_Positive;
+    m_leftSimState.Orientation = sim::ChassisReference::CounterClockwise_Positive;
+    m_leftFollowerSimState.Orientation = sim::ChassisReference::CounterClockwise_Positive;
     /* right TalonFXs are CW+ */
-    m_rightSimState.orientation = sim::ChassisReference::Clockwise_Positive;
-    m_rightFollowerSimState.orientation = sim::ChassisReference::Clockwise_Positive;
+    m_rightSimState.Orientation = sim::ChassisReference::Clockwise_Positive;
+    m_rightFollowerSimState.Orientation = sim::ChassisReference::Clockwise_Positive;
 
     /* Publish field pose data to read back from */
     frc::SmartDashboard::PutData("Field", &m_field);
